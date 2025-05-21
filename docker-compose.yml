@@ -1,0 +1,9 @@
+services:
+  khsd-retirement-recon-api:
+    image: ghcr.io/bobgdickson/khsd-retirement-recon
+    container_name: khsd-retirement-recon-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
