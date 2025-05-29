@@ -29,7 +29,8 @@ STRS_COLUMN_MAP = {
     "CONTRIBUTION CODE": "contribution_code",
     "PAY CODE": "pay_code",
     "SOURCE": "input_source",
-    "VERIFIED": "verified"
+    "VERIFIED": "verified",
+    "STRS": "retirement_type",  # Assuming STRS is a type, not a code
 }
 
 PERS_COLUMN_MAP = {
@@ -113,12 +114,6 @@ async def import_ice_cube_data(
 
         allowed_fields = {column.name for column in IceCubeReconPers.__table__.columns}
 
-        def to_date(val):
-            if pd.isna(val): return None
-            if isinstance(val, (datetime, date)): return val.date()
-            try: return pd.to_datetime(val).date()
-            except: return None
-
         records = []
         for _, row in df.iterrows():
             row_dict = row.to_dict()
@@ -144,6 +139,13 @@ async def import_ice_cube_data(
             records.append(IceCubeReconPers(**record_data))
 
     elif pension_plan == "STRS":
+        db.query(IceCubeReconStrs).filter(
+            IceCubeReconStrs.check_date >= start_of_month,
+            IceCubeReconStrs.check_date < (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1)
+                                           if start_of_month.month < 12
+                                           else start_of_month.replace(year=start_of_month.year + 1, month=1, day=1))
+        ).delete(synchronize_session=False)
+        
         # Clean and normalize column names
         df.columns = [col.strip().upper() for col in df.columns]
 
@@ -182,7 +184,6 @@ async def import_ice_cube_data(
                 "pay_code": int(row_dict.get("pay_code")) if pd.notna(row_dict.get("pay_code")) else None,
                 "input_source": str(row_dict.get("input_source")) if pd.notna(row_dict.get("input_source")) else None,
                 "retirement_type": str(row_dict.get("retirement_type")) if pd.notna(row_dict.get("retirement_type")) else None,
-                "retirement_code": str(row_dict.get("retirement_code")) if pd.notna(row_dict.get("retirement_code")) else None,
                 "verified": bool(int(row_dict.get("verified"))) if pd.notna(row_dict.get("verified")) else None,
             }
 
