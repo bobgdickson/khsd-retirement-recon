@@ -51,19 +51,19 @@ This service ingests `.xlsx` or `.csv` files from the Ice Cube export system, ap
 
 ### 📤 File Upload Endpoint
 
-**URL**: `POST /import-ice-cube/`
+**URL**: `POST /api/import-ice-cube/`
 **Content-Type**: `multipart/form-data`
 
 **Parameters**:
 
 * `file`: `.xlsx` or `.csv` file from Ice Cube
 * `month`: Service month in `YYYY-MM` format (e.g. `"2024-04"`)
-* `pension_plan`: Identifier string like `"CalSTRS"` or `"CalPERS"`
+* `pension_plan`: Identifier string like `"STRS"` or `"PERS"`
 
 **Example cURL**:
 
 ```bash
-curl -X POST http://localhost:8000/import-ice-cube/ \
+curl -X POST http://localhost:8000/api/import-ice-cube/ \
   -F "file=@export_apr.xlsx" \
   -F "month=2024-04" \
   -F "pension_plan=CalSTRS"
