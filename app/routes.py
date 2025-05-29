@@ -118,7 +118,7 @@ async def import_ice_cube_data(
         for _, row in df.iterrows():
             row_dict = row.to_dict()
             record_data = {
-                "empl_id": str(row_dict.get("empl_id")).strip() if pd.notna(row_dict.get("empl_id")) else None,
+                "empl_id": str(row_dict.get("empl_id")).zfill(6) if pd.notna(row_dict.get("empl_id")) else None,
                 "first_name": str(row_dict.get("first_name")).strip() if pd.notna(row_dict.get("first_name")) else None,
                 "last_name": str(row_dict.get("last_name")).strip() if pd.notna(row_dict.get("last_name")) else None,
                 "service_period": to_date(row_dict.get("service_period")),
@@ -145,7 +145,7 @@ async def import_ice_cube_data(
                                            if start_of_month.month < 12
                                            else start_of_month.replace(year=start_of_month.year + 1, month=1, day=1))
         ).delete(synchronize_session=False)
-        
+
         # Clean and normalize column names
         df.columns = [col.strip().upper() for col in df.columns]
 
@@ -166,7 +166,7 @@ async def import_ice_cube_data(
             row_dict = row.to_dict()
 
             record_data = {
-                "empl_id": str(row_dict.get("empl_id")).strip() if pd.notna(row_dict.get("empl_id")) else None,
+                "empl_id": str(row_dict.get("empl_id")).zfill(6) if pd.notna(row_dict.get("empl_id")) else None,
                 "first_name": str(row_dict.get("first_name")).strip() if pd.notna(row_dict.get("first_name")) else None,
                 "last_name": str(row_dict.get("last_name")).strip() if pd.notna(row_dict.get("last_name")) else None,
                 "check_date": to_date(row_dict.get("check_date")),
