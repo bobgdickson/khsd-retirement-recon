@@ -12,3 +12,11 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
+
+def get_db():
+    """Dependency to get a database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
