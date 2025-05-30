@@ -170,18 +170,25 @@ async def import_ice_cube_base64(
     pension_plan: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    print("Received base64 upload:")
+    print("file_name:", file_name)
+    print("month:", month)
+    print("pension_plan:", pension_plan)
+    print("file_data (first 100 chars):", file_data[:100])
+
     try:
         parsed_date = datetime.strptime(month, "%Y-%m")
-    except ValueError:
+    except ValueError as e:
+        print("Month parsing failed:", e)
         raise HTTPException(status_code=400, detail="Month format must be YYYY-MM")
 
-    # Strip data URI prefix if present
-    if "," in file_data:
-        file_data = file_data.split(",", 1)[1]  # Discard data:*/*;base64, part
-
     try:
+        if "," in file_data:
+            file_data = file_data.split(",", 1)[1]
         decoded_bytes = base64.b64decode(file_data)
+        print("Decoded file size:", len(decoded_bytes))
     except Exception as e:
+        print("Base64 decode failed:", e)
         raise HTTPException(status_code=400, detail=f"Failed to decode base64: {e}")
 
     try:
@@ -192,6 +199,9 @@ async def import_ice_cube_base64(
         else:
             raise HTTPException(status_code=400, detail="Unsupported file type")
     except Exception as e:
+        print("File parsing failed:", e)
         raise HTTPException(status_code=400, detail=f"Error reading file content: {e}")
+
+    print("Parsed DataFrame with", len(df), "rows")
 
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
