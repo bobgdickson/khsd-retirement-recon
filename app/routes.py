@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
 import pandas as pd
-import io
+import io, base64
 from datetime import datetime, date
 from app.db import get_db
 from app.models import IceCubeReconPers, IceCubeReconStrs
@@ -67,52 +67,21 @@ def to_date(val):
     except:
         return None
 
-@router.post("/import-ice-cube/", response_model=dict)
-async def import_ice_cube_data(
-    file: UploadFile = File(...),
-    month: str = Form(...),  # format: YYYY-MM
-    pension_plan: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    # Validate month
-    try:
-        parsed_date = datetime.strptime(month, "%Y-%m")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Month format must be YYYY-MM")
-
-    # Read file contents
-    contents = await file.read()
-    try:
-        if file.filename.endswith(".csv"):
-            df = pd.read_csv(io.StringIO(contents.decode("utf-8")))
-        elif file.filename.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(io.BytesIO(contents))
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
-
-    # Add service_period if needed
-    df["service_period"] = parsed_date
-    print("Original columns:", df.columns.tolist())
-    print(df.head())
-    # Determine model and delete existing records for same month
+def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: str, db: Session):
     start_of_month = parsed_date.replace(day=1)
+    end_of_month = (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1)
+                    if start_of_month.month < 12
+                    else start_of_month.replace(year=start_of_month.year + 1, month=1, day=1))
+
     if pension_plan == "PERS":
         db.query(IceCubeReconPers).filter(
             IceCubeReconPers.check_date >= start_of_month,
-            IceCubeReconPers.check_date < (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1)
-                                           if start_of_month.month < 12
-                                           else start_of_month.replace(year=start_of_month.year + 1, month=1, day=1))
+            IceCubeReconPers.check_date < end_of_month
         ).delete(synchronize_session=False)
 
         df.columns = [col.strip().upper() for col in df.columns]
         df.rename(columns=PERS_COLUMN_MAP, inplace=True)
-
-        # Add check_date from parsed_date
         df["check_date"] = parsed_date
-
-        allowed_fields = {column.name for column in IceCubeReconPers.__table__.columns}
 
         records = []
         for _, row in df.iterrows():
@@ -135,36 +104,20 @@ async def import_ice_cube_data(
                 "retirement_code": str(row_dict.get("retirement_code")) if pd.notna(row_dict.get("retirement_code")) else None,
                 "check_date": to_date(row_dict.get("check_date")),
             }
-
             records.append(IceCubeReconPers(**record_data))
 
     elif pension_plan == "STRS":
         db.query(IceCubeReconStrs).filter(
             IceCubeReconStrs.check_date >= start_of_month,
-            IceCubeReconStrs.check_date < (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1)
-                                           if start_of_month.month < 12
-                                           else start_of_month.replace(year=start_of_month.year + 1, month=1, day=1))
+            IceCubeReconStrs.check_date < end_of_month
         ).delete(synchronize_session=False)
 
-        # Clean and normalize column names
         df.columns = [col.strip().upper() for col in df.columns]
-
-
-        # Apply column renaming
         df.rename(columns=STRS_COLUMN_MAP, inplace=True)
 
-        # Log for debugging
-        print("Renamed columns:", df.columns.tolist())
-        print("Sample row:", df.iloc[0].to_dict())
-
-        # Restrict to fields defined in the SQLAlchemy model
-        allowed_fields = {column.name for column in IceCubeReconStrs.__table__.columns}
-
-        # Drop any columns that don't match
         records = []
         for _, row in df.iterrows():
             row_dict = row.to_dict()
-
             record_data = {
                 "empl_id": str(row_dict.get("empl_id")).zfill(6) if pd.notna(row_dict.get("empl_id")) else None,
                 "first_name": str(row_dict.get("first_name")).strip() if pd.notna(row_dict.get("first_name")) else None,
@@ -186,12 +139,7 @@ async def import_ice_cube_data(
                 "retirement_type": str(row_dict.get("retirement_type")) if pd.notna(row_dict.get("retirement_type")) else None,
                 "verified": bool(int(row_dict.get("verified"))) if pd.notna(row_dict.get("verified")) else None,
             }
-
-            try:
-                records.append(IceCubeReconStrs(**record_data))
-            except Exception as e:
-                print("Row failed:", record_data)
-                print("Error:", e)
+            records.append(IceCubeReconStrs(**record_data))
     else:
         raise HTTPException(status_code=400, detail="Invalid pension_plan. Use 'PERS' or 'STRS'.")
 
@@ -199,3 +147,31 @@ async def import_ice_cube_data(
     db.commit()
 
     return {"message": "Upload successful", "rows_inserted": len(records)}
+
+
+@router.post("/import-ice-cube/")
+async def import_ice_cube_file(
+    file: UploadFile = File(...),
+    month: str = Form(...),
+    pension_plan: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    parsed_date = datetime.strptime(month, "%Y-%m")
+    contents = await file.read()
+    df = pd.read_excel(io.BytesIO(contents)) if file.filename.endswith(".xlsx") else pd.read_csv(io.StringIO(contents.decode("utf-8")))
+    return process_ice_cube_upload(df, parsed_date, pension_plan, db)
+
+
+@router.post("/upload-base64/")
+async def import_ice_cube_base64(
+    file_data: str = Form(...),
+    file_name: str = Form(...),
+    month: str = Form(...),
+    pension_plan: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    parsed_date = datetime.strptime(month, "%Y-%m")
+    encoded = file_data.split(",", 1)[-1]  # Strip data: header if present
+    decoded = base64.b64decode(encoded)
+    df = pd.read_excel(io.BytesIO(decoded)) if file_name.endswith(".xlsx") else pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+    return process_ice_cube_upload(df, parsed_date, pension_plan, db)
