@@ -170,8 +170,28 @@ async def import_ice_cube_base64(
     pension_plan: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    parsed_date = datetime.strptime(month, "%Y-%m")
-    encoded = file_data.split(",", 1)[-1]  # Strip data: header if present
-    decoded = base64.b64decode(encoded)
-    df = pd.read_excel(io.BytesIO(decoded)) if file_name.endswith(".xlsx") else pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+    try:
+        parsed_date = datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Month format must be YYYY-MM")
+
+    # Strip data URI prefix if present
+    if "," in file_data:
+        file_data = file_data.split(",", 1)[1]  # Discard data:*/*;base64, part
+
+    try:
+        decoded_bytes = base64.b64decode(file_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to decode base64: {e}")
+
+    try:
+        if file_name.endswith(".csv"):
+            df = pd.read_csv(io.StringIO(decoded_bytes.decode("utf-8")))
+        elif file_name.endswith((".xlsx", ".xls")):
+            df = pd.read_excel(io.BytesIO(decoded_bytes))
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file type")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error reading file content: {e}")
+
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
