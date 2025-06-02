@@ -20,3 +20,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_engine(name="local"):
+    db_url = os.getenv("DATABASE_URL") if name == "local" else os.getenv("PS_DB_URL")
+    return create_engine(db_url, fast_executemany=True)

@@ -4,7 +4,8 @@ from datetime import datetime
 import pandas as pd
 import io, base64
 from datetime import datetime, date
-from app.db import get_db
+from app.db import get_db, get_engine
+from dateutil.relativedelta import relativedelta
 from app.models import IceCubeReconPers, IceCubeReconStrs
 
 router = APIRouter()
@@ -205,3 +206,51 @@ async def import_ice_cube_base64(
     print("Parsed DataFrame with", len(df), "rows")
 
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
+
+@router.post("/import-payroll-staging/")
+async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
+    parsed = datetime.strptime(month, "%Y-%m")
+    start_window = (parsed - relativedelta(months=1)).replace(day=1)
+    end_window = (parsed + relativedelta(months=1)).replace(day=1)
+    # Convert to strings for SQL parameters
+    start_window = start_window.strftime("%Y-%m-%d")
+    end_window = end_window.strftime("%Y-%m-%d")
+
+    # Connect to PeopleSoft DB
+    ps_engine = get_engine(name="ps")
+
+    ps_query = """
+    SELECT
+        C.EMPLID,
+        C.PAY_END_DT,
+        C.PAGE_NUM,
+        C.LINE_NUM,
+        C.PAYGROUP,
+        C.OFF_CYCLE,
+        C.SEPCHK,
+        D.DED_CUR
+        FROM PS_PAY_CHECK C
+        LEFT JOIN PS_PAY_DEDUCTION D
+        ON D.PAGE_NUM = C.PAGE_NUM
+        AND D.LINE_NUM = C.LINE_NUM
+        AND D.PAY_END_DT = C.PAY_END_DT
+        AND D.PAYGROUP = C.PAYGROUP
+        AND D.OFF_CYCLE = C.OFF_CYCLE
+        AND D.SEPCHK = C.SEPCHK
+        AND D.DEDCD IN ('PERS','PERSP','NPERS')
+        WHERE C.PAY_END_DT >= ? AND C.PAY_END_DT < ?
+    """
+
+    # Pull from PeopleSoft
+    df = pd.read_sql(
+        ps_query,
+        ps_engine,
+        params=(start_window, end_window)
+    )
+
+    # Optionally clean/rename columns here
+
+    # Save to local staging table
+    df.to_sql("ICE_CUBE_PAY_DATA_STAGING", con=db.bind, if_exists="replace", index=False)
+
+    return {"message": "Payroll data copied", "rows_inserted": len(df)}

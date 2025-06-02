@@ -66,7 +66,7 @@ This service ingests `.xlsx` or `.csv` files from the Ice Cube export system, ap
 curl -X POST http://localhost:8000/api/import-ice-cube/ \
   -F "file=@export_apr.xlsx" \
   -F "month=2024-04" \
-  -F "pension_plan=CalSTRS"
+  -F "pension_plan=STRS"
 ```
 
 ---
@@ -94,3 +94,10 @@ This enables payroll staff to:
 * Docker image builds exclude sensitive config
 
 ---
+
+### Project TODOs
+
+- [ ] Auto-refresh payroll on initial load
+- [ ] Check staging table dont refresh if already data for that period of time
+- [ ] Add 'recon period' month-year to table so DELETE on new upload can function appropriately
+- [ ] Add friendly HTMX UI (replace appsmith)
