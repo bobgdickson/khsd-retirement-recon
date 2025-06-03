@@ -97,7 +97,7 @@ This enables payroll staff to:
 
 ### Project TODOs
 
-- [ ] Auto-refresh payroll on initial load
-- [ ] Check staging table dont refresh if already data for that period of time
+- [X] Auto-refresh payroll on initial load
+- [X] Check staging table dont refresh if already data for that period of time
 - [ ] Add 'recon period' month-year to table so DELETE on new upload can function appropriately
 - [ ] Add friendly HTMX UI (replace appsmith)

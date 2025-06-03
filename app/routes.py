@@ -147,6 +147,9 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
     db.bulk_save_objects(records)
     db.commit()
 
+    # Stage Payroll Data
+    rows_staged = load_staging_data(parsed_date.strftime("%Y-%m"))
+
     return {"message": "Upload successful", "rows_inserted": len(records)}
 
 
@@ -207,14 +210,26 @@ async def import_ice_cube_base64(
 
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
 
-@router.post("/import-payroll-staging/")
-async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
+def load_staging_data(month):
     parsed = datetime.strptime(month, "%Y-%m")
     start_window = (parsed - relativedelta(months=1)).replace(day=1)
     end_window = (parsed + relativedelta(months=1)).replace(day=1)
     # Convert to strings for SQL parameters
     start_window = start_window.strftime("%Y-%m-%d")
     end_window = end_window.strftime("%Y-%m-%d")
+
+    # TODO: Check if this period is already staged
+    cube_engine = get_engine(name="local")
+
+    stage_sql = """
+    SELECT COUNT(*) FROM ICE_CUBE_PAY_DATA_STAGING
+    WHERE PAY_END_DT >= ? AND PAY_END_DT < ?
+    """
+    existing_count = pd.read_sql(
+        stage_sql,
+        cube_engine,
+        params=(start_window, end_window)
+    ).iloc[0, 0]
 
     # Connect to PeopleSoft DB
     ps_engine = get_engine(name="ps")
@@ -228,17 +243,20 @@ async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
         C.PAYGROUP,
         C.OFF_CYCLE,
         C.SEPCHK,
+        D.DEDCD,
+        D.DED_CLASS,
         D.DED_CUR
-        FROM PS_PAY_CHECK C
-        LEFT JOIN PS_PAY_DEDUCTION D
+    FROM PS_PAY_CHECK C
+    LEFT JOIN PS_PAY_DEDUCTION D
         ON D.PAGE_NUM = C.PAGE_NUM
         AND D.LINE_NUM = C.LINE_NUM
         AND D.PAY_END_DT = C.PAY_END_DT
         AND D.PAYGROUP = C.PAYGROUP
         AND D.OFF_CYCLE = C.OFF_CYCLE
         AND D.SEPCHK = C.SEPCHK
-        AND D.DEDCD IN ('PERS','PERSP','NPERS')
-        WHERE C.PAY_END_DT >= ? AND C.PAY_END_DT < ?
+        AND D.DEDCD IN ('PERPB2' ,'PERPBD' ,'PERPBD' ,'PERS' ,'PERSAJ' ,'PERSAJ' ,'PERSP' ,'PERSPB','STRPB2','STRPBY','STRS','STRSAJ','STRSPB')
+    WHERE
+        C.PAY_END_DT >= ? AND C.PAY_END_DT < ?
     """
 
     # Pull from PeopleSoft
@@ -248,9 +266,15 @@ async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
         params=(start_window, end_window)
     )
 
-    # Optionally clean/rename columns here
+    # Compare count of existing staged data
+    if existing_count != len(df):
+        print(f"Staging data count mismatch: existing {existing_count}, new {len(df)}")
+        # Save to local staging table
+        df.to_sql("ICE_CUBE_PAY_DATA_STAGING", cube_engine, if_exists="replace", index=False)
 
-    # Save to local staging table
-    df.to_sql("ICE_CUBE_PAY_DATA_STAGING", con=db.bind, if_exists="replace", index=False)
+    return len(df)
 
-    return {"message": "Payroll data copied", "rows_inserted": len(df)}
+@router.post("/import-payroll-staging/")
+async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
+    rows_inserted = load_staging_data(month)
+    return {"message": "Payroll data copied", "rows_inserted": rows_inserted}
