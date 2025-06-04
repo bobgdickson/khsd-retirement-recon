@@ -19,6 +19,7 @@ class IceCubeReconPersBase(BaseModel):
     user_source: Optional[str]
     retirement_code: Optional[str]
     check_date: Optional[date]
+    recon_period: Optional[str]
 
 class IceCubeReconPersCreate(IceCubeReconPersBase):
     pass
@@ -50,6 +51,7 @@ class IceCubeReconStrsBase(BaseModel):
     retirement_type: Optional[str]
     retirement_code: Optional[str]
     verified: Optional[bool]
+    recon_period: Optional[str]
 
 class IceCubeReconStrsCreate(IceCubeReconStrsBase):
     pass

@@ -24,6 +24,7 @@ class IceCubeReconPers(Base):
     user_source = Column(String)  # VARCHAR(MAX)
     retirement_code = Column(String(10))
     check_date = Column(Date)
+    recon_period = Column(String(7)) 
 
 class IceCubeReconStrs(Base):
     __tablename__ = "ICE_CUBE_RECON_STRS"
@@ -50,3 +51,4 @@ class IceCubeReconStrs(Base):
     retirement_type = Column("RETIREMENT_TYPE", String(10), nullable=True)
     retirement_code = Column("RETIREMENT_CODE", String(10), nullable=True)
     verified = Column("VERIFIED", Boolean, nullable=True)
+    recon_period = Column("RECON_PERIOD", String(7), nullable=True)

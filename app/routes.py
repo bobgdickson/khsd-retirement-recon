@@ -31,7 +31,8 @@ STRS_COLUMN_MAP = {
     "PAY CODE": "pay_code",
     "SOURCE": "input_source",
     "VERIFIED": "verified",
-    "STRS": "retirement_type",  # Assuming STRS is a type, not a code
+    "STRS": "retirement_type",
+    "RECON PERIOD": "recon_period",
 }
 
 PERS_COLUMN_MAP = {
@@ -48,7 +49,8 @@ PERS_COLUMN_MAP = {
     "EARN CODE": "erncd",
     "CONTRIBUTION CODE": "contribution_code",
     "WORK SCHEDULE CODE": "work_schedule_code",
-    "SOURCE": "user_source"
+    "SOURCE": "user_source",
+    "RECON PERIOD": "recon_period",
 }
 
 def clean_code(val, width=2):
@@ -76,13 +78,13 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
 
     if pension_plan == "PERS":
         db.query(IceCubeReconPers).filter(
-            IceCubeReconPers.check_date >= start_of_month,
-            IceCubeReconPers.check_date < end_of_month
+            IceCubeReconPers.recon_period == parsed_date.strftime("%Y-%m"),
         ).delete(synchronize_session=False)
 
         df.columns = [col.strip().upper() for col in df.columns]
         df.rename(columns=PERS_COLUMN_MAP, inplace=True)
         df["check_date"] = parsed_date
+        df["recon_period"] = parsed_date.strftime("%Y-%m")
 
         records = []
         for _, row in df.iterrows():
@@ -104,17 +106,19 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
                 "user_source": str(row_dict.get("user_source")) if pd.notna(row_dict.get("user_source")) else None,
                 "retirement_code": str(row_dict.get("retirement_code")) if pd.notna(row_dict.get("retirement_code")) else None,
                 "check_date": to_date(row_dict.get("check_date")),
+                "recon_period": row_dict.get("recon_period", parsed_date.strftime("%Y-%m")),
             }
             records.append(IceCubeReconPers(**record_data))
 
     elif pension_plan == "STRS":
         db.query(IceCubeReconStrs).filter(
-            IceCubeReconStrs.check_date >= start_of_month,
-            IceCubeReconStrs.check_date < end_of_month
+            IceCubeReconStrs.recon_period == parsed_date.strftime("%Y-%m"),
         ).delete(synchronize_session=False)
 
         df.columns = [col.strip().upper() for col in df.columns]
         df.rename(columns=STRS_COLUMN_MAP, inplace=True)
+
+        df["recon_period"] = parsed_date.strftime("%Y-%m")
 
         records = []
         for _, row in df.iterrows():
@@ -139,6 +143,7 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
                 "input_source": str(row_dict.get("input_source")) if pd.notna(row_dict.get("input_source")) else None,
                 "retirement_type": str(row_dict.get("retirement_type")) if pd.notna(row_dict.get("retirement_type")) else None,
                 "verified": bool(int(row_dict.get("verified"))) if pd.notna(row_dict.get("verified")) else None,
+                "recon_period": row_dict.get("recon_period", parsed_date.strftime("%Y-%m")),
             }
             records.append(IceCubeReconStrs(**record_data))
     else:
