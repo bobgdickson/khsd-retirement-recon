@@ -57,26 +57,34 @@ PERS_COLUMN_MAP = {
     "RECON PERIOD": "recon_period",
 }
 
-@router.get("/ui/ice-cube-upload", response_class=HTMLResponse)
-async def ice_cube_upload_form(request: Request):
-    return templates.TemplateResponse("ice_cube_upload.html", {"request": request})
+def detect_file_type(df: pd.DataFrame) -> str | None:
+    """
+    Look at df.columns (upper‐cased) and decide:
+      - If it has STRS‐specific headers → return "STRS"
+      - If it has PERS‐specific headers → return "PERS"
+      - Otherwise → return None
+    """
 
-@router.post("/ui/import-ice-cube", response_class=HTMLResponse)
-async def import_ice_cube_htmx(
-    request: Request,
-    file: UploadFile = File(...),
-    month: str = Form(...),
-    pension_plan: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    try:
-        parsed_date = datetime.strptime(month, "%Y-%m")
-        contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents)) if file.filename.endswith(".xlsx") else pd.read_csv(io.StringIO(contents.decode("utf-8")))
-        result = process_ice_cube_upload(df, parsed_date, pension_plan, db)
-        return HTMLResponse(content=f"<div class='success'>Upload successful: {result['rows_inserted']} rows inserted.</div>")
-    except Exception as e:
-        return HTMLResponse(content=f"<div class='error'>Upload failed: {str(e)}</div>", status_code=400)
+    # Normalize column names
+    upcols = [col.strip().upper() for col in df.columns]
+
+    # PERS files almost always include a "SERVICE PERIOD" (or "SERVICE P") column
+    # and usually "EARN CODE" or "WORK SCHEDULE CODE", etc.
+    pers_keywords = {"SERVICE PERIOD", "WORK SCHEDULE CODE", "EMPLOYEE RECORD"}  # tweak if your exports differ
+    # STRS files almost always include a "CHECK DATE" column and a "MEMBER CODE" column
+    strs_keywords = {"STRS", "ASSIGNMENT", "PAY CODE"}
+
+    # Count how many keywords appear in the header list
+    pers_count = sum(1 for h in upcols for kw in pers_keywords if kw in h)
+    strs_count = sum(1 for h in upcols for kw in strs_keywords if kw in h)
+
+    # If one clearly dominates, return it
+    if pers_count > strs_count:
+        return "PERS"
+    if strs_count > pers_count:
+        return "STRS"
+    # If neither side is strong, return None
+    return None
 
 def clean_code(val, width=2):
     if pd.isna(val):
@@ -96,6 +104,13 @@ def to_date(val):
         return None
 
 def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: str, db: Session):
+    detected_plan = detect_file_type(df)
+    if detected_plan and pension_plan != detected_plan:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Detected file type '{detected_plan}' does not match provided pension_plan '{pension_plan}'."
+        )
+    
     start_of_month = parsed_date.replace(day=1)
     end_of_month = (start_of_month.replace(month=start_of_month.month % 12 + 1, day=1)
                     if start_of_month.month < 12
@@ -202,7 +217,6 @@ def load_staging_data(month):
     start_window = start_window.strftime("%Y-%m-%d")
     end_window = end_window.strftime("%Y-%m-%d")
 
-    # TODO: Check if this period is already staged
     cube_engine = get_engine(name="local")
 
     stage_sql = """

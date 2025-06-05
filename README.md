@@ -33,7 +33,7 @@ This service ingests `.xlsx` or `.csv` files from the Ice Cube export system, ap
    ```env
    DATABASE_URL=mssql+pyodbc://user:pass@host/dbname?driver=ODBC+Driver+17+for+SQL+Server
    PS_DB_URL=mssql+pyodbc://user:pass@host/dbname?driver=ODBC+Driver+17+for+SQL+Server
-````
+   ```
 
 3. **Run locally via Docker Compose**:
 
@@ -122,6 +122,7 @@ This enables payroll staff to:
 * [x] Add `recon_period` (month-year) column to support overwrite logic
 * [x] Replace Appsmith with friendly in-browser HTMX UI
 * [x] Add real-time progress bar and status messaging
+* [ ] API Key secure endpoints
 * [ ] Optional: background processing or queuing for heavy files
 * [ ] Optional: anomaly scoring via ML heuristics
 
