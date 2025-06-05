@@ -7,15 +7,13 @@ import io
 from datetime import datetime, date
 from app.db import get_db
 from app.models import IceCubeReconPers, IceCubeReconStrs
-from app.routes import router
+from app.routes.recon_import import router
+from app.routes.ui_router import router as ui_router
 
 app = FastAPI(title="Ice Cube Data Import API", version="1.0.0")
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the Ice Cube Data Import API"}
-
 app.include_router(router, prefix="/api", tags=["ice_cube"])
+app.include_router(ui_router, tags=["ui"])
 
 if __name__ == "__main__":
     import uvicorn

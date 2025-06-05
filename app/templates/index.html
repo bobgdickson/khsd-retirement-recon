@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ice Cube Retirement Recon Upload</title>
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+    .htmx-indicator { margin-top: 1rem; display: none; }
+    .success { color: green; margin-top: 1rem; }
+    .error { color: red; margin-top: 1rem; }
+    #upload-progress { width: 100%; height: 20px; }
+  </style>
+</head>
+<body>
+  <h2>Ice Cube Recon File Upload</h2>
+  <form id="recon-upload-form" enctype="multipart/form-data">
+    <label for="month">Recon Period (YYYY-MM):</label><br>
+    <input type="month" name="month" required><br><br>
+
+    <label for="pension_plan">Pension Plan:</label><br>
+    <select name="pension_plan" required>
+      <option value="STRS">STRS</option>
+      <option value="PERS">PERS</option>
+    </select><br><br>
+
+    <label for="file">Upload File (.xlsx or .csv):</label><br>
+    <input type="file" name="file" required><br><br>
+
+    <button type="submit">Upload</button>
+
+    <div id="upload-spinner" style="display: none;">
+    <p id="status-msg">Preparing upload…</p>
+    <progress id="upload-progress" max="100" value="0"></progress>
+    </div>
+
+  </form>
+
+  <div id="upload-result"></div>
+
+  <script>
+    document.querySelector('#recon-upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
+
+        const spinner = document.querySelector('#upload-spinner');
+        const progress = document.querySelector('#upload-progress');
+        const resultDiv = document.querySelector('#upload-result');
+        const statusMsg = document.querySelector('#status-msg');
+
+        spinner.style.display = 'block';
+        progress.value = 0;
+        progress.max = 100;
+        statusMsg.textContent = 'Uploading…';
+
+        xhr.open('POST', '/upload', true);
+
+        xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            progress.value = percent;
+
+            if (percent < 100) {
+            statusMsg.textContent = `Uploading (${percent.toFixed(0)}%)…`;
+            } else {
+            statusMsg.textContent = 'Processing…';
+            }
+        }
+        });
+
+
+        xhr.onload = function () {
+        statusMsg.textContent = "Processing…";
+        setTimeout(() => {
+            spinner.style.display = 'none';
+            resultDiv.innerHTML = xhr.responseText;
+            form.reset();
+            statusMsg.textContent = "";
+            progress.value = 0;
+        }, 300); // slight delay to let "Processing…" be seen
+        };
+
+        xhr.onerror = function () {
+        spinner.style.display = 'none';
+        resultDiv.innerHTML = '<div class="error">❌ Upload failed unexpectedly.</div>';
+        statusMsg.textContent = "";
+        };
+
+        xhr.send(formData);
+    });
+    </script>
+</body>
+</html>

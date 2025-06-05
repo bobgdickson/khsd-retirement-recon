@@ -1,12 +1,16 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 import pandas as pd
-import io, base64
+import io
 from datetime import datetime, date
 from app.db import get_db, get_engine
 from dateutil.relativedelta import relativedelta
 from app.models import IceCubeReconPers, IceCubeReconStrs
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory="app/templates") 
 
 router = APIRouter()
 
@@ -52,6 +56,27 @@ PERS_COLUMN_MAP = {
     "SOURCE": "user_source",
     "RECON PERIOD": "recon_period",
 }
+
+@router.get("/ui/ice-cube-upload", response_class=HTMLResponse)
+async def ice_cube_upload_form(request: Request):
+    return templates.TemplateResponse("ice_cube_upload.html", {"request": request})
+
+@router.post("/ui/import-ice-cube", response_class=HTMLResponse)
+async def import_ice_cube_htmx(
+    request: Request,
+    file: UploadFile = File(...),
+    month: str = Form(...),
+    pension_plan: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        parsed_date = datetime.strptime(month, "%Y-%m")
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents)) if file.filename.endswith(".xlsx") else pd.read_csv(io.StringIO(contents.decode("utf-8")))
+        result = process_ice_cube_upload(df, parsed_date, pension_plan, db)
+        return HTMLResponse(content=f"<div class='success'>Upload successful: {result['rows_inserted']} rows inserted.</div>")
+    except Exception as e:
+        return HTMLResponse(content=f"<div class='error'>Upload failed: {str(e)}</div>", status_code=400)
 
 def clean_code(val, width=2):
     if pd.isna(val):
@@ -157,7 +182,6 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
 
     return {"message": "Upload successful", "rows_inserted": len(records)}
 
-
 @router.post("/import-ice-cube/")
 async def import_ice_cube_file(
     file: UploadFile = File(...),
@@ -168,51 +192,6 @@ async def import_ice_cube_file(
     parsed_date = datetime.strptime(month, "%Y-%m")
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents)) if file.filename.endswith(".xlsx") else pd.read_csv(io.StringIO(contents.decode("utf-8")))
-    return process_ice_cube_upload(df, parsed_date, pension_plan, db)
-
-
-@router.post("/upload-base64/")
-async def import_ice_cube_base64(
-    file_data: str = Form(...),
-    file_name: str = Form(...),
-    month: str = Form(...),
-    pension_plan: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    print("Received base64 upload:")
-    print("file_name:", file_name)
-    print("month:", month)
-    print("pension_plan:", pension_plan)
-    print("file_data (first 100 chars):", file_data[:100])
-
-    try:
-        parsed_date = datetime.strptime(month, "%Y-%m")
-    except ValueError as e:
-        print("Month parsing failed:", e)
-        raise HTTPException(status_code=400, detail="Month format must be YYYY-MM")
-
-    try:
-        if "," in file_data:
-            file_data = file_data.split(",", 1)[1]
-        decoded_bytes = base64.b64decode(file_data)
-        print("Decoded file size:", len(decoded_bytes))
-    except Exception as e:
-        print("Base64 decode failed:", e)
-        raise HTTPException(status_code=400, detail=f"Failed to decode base64: {e}")
-
-    try:
-        if file_name.endswith(".csv"):
-            df = pd.read_csv(io.StringIO(decoded_bytes.decode("utf-8")))
-        elif file_name.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(io.BytesIO(decoded_bytes))
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
-    except Exception as e:
-        print("File parsing failed:", e)
-        raise HTTPException(status_code=400, detail=f"Error reading file content: {e}")
-
-    print("Parsed DataFrame with", len(df), "rows")
-
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
 
 def load_staging_data(month):
@@ -283,3 +262,4 @@ def load_staging_data(month):
 async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
     rows_inserted = load_staging_data(month)
     return {"message": "Payroll data copied", "rows_inserted": rows_inserted}
+

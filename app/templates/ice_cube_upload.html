@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload Ice Cube Recon</title>
+  <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+</head>
+<body>
+  <h1>Ice Cube Recon File Upload</h1>
+  <form 
+  hx-post="/api/ui/import-ice-cube" 
+  hx-target="#upload-result" 
+  hx-swap="innerHTML"
+  enctype="multipart/form-data"
+>
+  <label for="month">Recon Period (YYYY-MM):</label>
+  <input type="month" name="month" required>
+
+  <label for="pension_plan">Pension Plan:</label>
+  <select name="pension_plan" required>
+    <option value="STRS">STRS</option>
+    <option value="PERS">PERS</option>
+  </select>
+
+  <label for="file">File (.xlsx or .csv):</label>
+  <input type="file" name="file" required>
+
+  <button type="submit">Upload</button>
+</form>
+{{ form_html | safe }}
+<div id="upload-result"></div>
+  
+</body>
+</html>
+
