@@ -9,6 +9,7 @@ from dateutil.relativedelta import relativedelta
 from app.models import IceCubeReconPers, IceCubeReconStrs
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from app.config import PASSPHRASE
 
 templates = Jinja2Templates(directory="app/templates") 
 
@@ -202,8 +203,11 @@ async def import_ice_cube_file(
     file: UploadFile = File(...),
     month: str = Form(...),
     pension_plan: str = Form(...),
+    passphrase: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    if passphrase != PASSPHRASE:
+        raise HTTPException(status_code=403, detail="Invalid passphrase.")
     parsed_date = datetime.strptime(month, "%Y-%m")
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents)) if file.filename.endswith(".xlsx") else pd.read_csv(io.StringIO(contents.decode("utf-8")))

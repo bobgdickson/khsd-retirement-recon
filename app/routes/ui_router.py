@@ -7,6 +7,7 @@ import pandas as pd
 import io
 from app.db import get_db
 from app.routes.recon_import import process_ice_cube_upload  # ← assumes logic lives in recon_import.py
+from app.config import PASSPHRASE
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -21,8 +22,11 @@ async def handle_upload(
     file: UploadFile = File(...),
     month: str = Form(...),
     pension_plan: str = Form(...),
+    passphrase: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    if passphrase != PASSPHRASE:
+        return HTMLResponse("<div class='error'>❌ Invalid passphrase.</div>", status_code=403)
     try:
         parsed_date = datetime.strptime(month, "%Y-%m")
         contents = await file.read()

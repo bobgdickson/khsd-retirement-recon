@@ -122,7 +122,7 @@ This enables payroll staff to:
 * [x] Add `recon_period` (month-year) column to support overwrite logic
 * [x] Replace Appsmith with friendly in-browser HTMX UI
 * [x] Add real-time progress bar and status messaging
-* [ ] API Key secure endpoints
+* [x] API Key secure endpoints
 * [ ] Optional: background processing or queuing for heavy files
 * [ ] Optional: anomaly scoring via ML heuristics
 
