@@ -52,3 +52,19 @@ class IceCubeReconStrs(Base):
     retirement_code = Column("RETIREMENT_CODE", String(10), nullable=True)
     verified = Column("VERIFIED", Boolean, nullable=True)
     recon_period = Column("RECON_PERIOD", String(7), nullable=True)
+
+class IceCubePayDataStaging(Base):
+    __tablename__ = "ICE_CUBE_PAY_DATA_STAGING"
+    extend_existing = True
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    emplid = Column(String(10), nullable=True)
+    pay_end_dt = Column(Date, nullable=True)
+    page_num = Column(Integer, nullable=True)
+    line_num = Column(Integer, nullable=True)
+    paygroup = Column(String(10), nullable=True)
+    off_cycle = Column(String(10), nullable=True)
+    sepchk = Column(Integer, nullable=True)
+    dedcd = Column(String(10), nullable=True)
+    ded_class = Column(String(10), nullable=True)
+    ded_cur = Column(Float, nullable=True)
