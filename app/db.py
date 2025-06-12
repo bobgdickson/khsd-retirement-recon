@@ -1,3 +1,6 @@
+"""
+Database engine and session utilities.
+"""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
@@ -22,5 +25,14 @@ def get_db():
         db.close()
 
 def get_engine(name="local"):
+    """
+    Create and return a SQLAlchemy Engine.
+
+    Args:
+        name (str): 'local' for primary DATABASE_URL or 'ps' for PS_DB_URL.
+
+    Returns:
+        sqlalchemy.Engine: Engine instance for the specified database.
+    """
     db_url = os.getenv("DATABASE_URL") if name == "local" else os.getenv("PS_DB_URL")
     return create_engine(db_url, fast_executemany=True)

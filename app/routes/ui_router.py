@@ -1,3 +1,6 @@
+"""
+HTMX-based UI routes for rendering the upload form and handling uploads.
+"""
 from fastapi import APIRouter, Request, UploadFile, File, Form, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -14,6 +17,15 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/", response_class=HTMLResponse)
 async def render_upload_form(request: Request):
+    """
+    Render the main upload form page.
+
+    Args:
+        request (Request): FastAPI request object.
+
+    Returns:
+        HTMLResponse: The upload form template.
+    """
     return templates.TemplateResponse("index.html", {"request": request})
 
 @router.post("/upload", response_class=HTMLResponse)
@@ -25,6 +37,20 @@ async def handle_upload(
     passphrase: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """
+    Handle HTMX file upload from the UI and process Ice Cube data.
+
+    Args:
+        request (Request): FastAPI request object.
+        file (UploadFile): Excel or CSV file upload.
+        month (str): Reporting month in 'YYYY-MM' format.
+        pension_plan (str): 'PERS' or 'STRS'.
+        passphrase (str): Secret passphrase for authorization.
+        db (Session): Database session dependency.
+
+    Returns:
+        HTMLResponse: Success or error message fragment.
+    """
     if passphrase != PASSPHRASE:
         return HTMLResponse("<div class='error'>❌ Invalid passphrase.</div>", status_code=403)
     try:

@@ -11,7 +11,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from app.config import PASSPHRASE
 
-templates = Jinja2Templates(directory="app/templates") 
+"""
+Routes and processing logic for uploading and importing Ice Cube data.
+"""
+templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter()
 
@@ -88,23 +91,61 @@ def detect_file_type(df: pd.DataFrame) -> str | None:
     return None
 
 def clean_code(val, width=2):
+    """
+    Clean and format a code value by zero-padding.
+
+    Args:
+        val: The input value, possibly numeric or string.
+        width: Minimum width for the output string, padded with zeros.
+
+    Returns:
+        A zero-padded string code, or None if input is null.
+    """
     if pd.isna(val):
         return None
     if isinstance(val, (int, float)):
-        return str(int(val)) # 0.0 to "0"
+        return str(int(val))  # 0.0 to "0"
     return str(val).strip().zfill(width)
 
 def to_date(val):
+    """
+    Convert various input types to a date object.
+
+    Args:
+        val: A datetime/date/string value.
+
+    Returns:
+        A date object if conversion is successful, otherwise None.
+    """
     if pd.isna(val):
         return None
     if isinstance(val, (datetime, date)):
         return val.date()
     try:
         return pd.to_datetime(val).date()
-    except:
+    except Exception:
         return None
 
 def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: str, db: Session):
+    """
+    Process and import Ice Cube DataFrame into the reconciliation database.
+
+    This will detect the file type (PERS or STRS), validate against the provided
+    pension_plan, clean and transform the DataFrame, delete any existing records
+    for the recon_period, and bulk-insert the new records.
+
+    Args:
+        df (pd.DataFrame): DataFrame loaded from the uploaded file.
+        parsed_date (date): The reporting month parsed as a date.
+        pension_plan (str): 'PERS' or 'STRS' indicating the target plan.
+        db (Session): SQLAlchemy database session.
+
+    Returns:
+        dict: Summary with message and rows_inserted count.
+
+    Raises:
+        HTTPException: If file type detection or pension_plan is invalid.
+    """
     detected_plan = detect_file_type(df)
     if detected_plan and pension_plan != detected_plan:
         raise HTTPException(
@@ -206,6 +247,25 @@ async def import_ice_cube_file(
     passphrase: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    """
+    API endpoint to upload an Ice Cube file and import its contents.
+
+    Validates the passphrase, reads the spreadsheet or CSV into a DataFrame,
+    and delegates to process_ice_cube_upload.
+
+    Args:
+        file (UploadFile): Excel (.xlsx) or CSV file upload.
+        month (str): Reporting month in 'YYYY-MM' format.
+        pension_plan (str): 'PERS' or 'STRS'.
+        passphrase (str): Secret passphrase to authorize import.
+        db (Session): Database session dependency.
+
+    Returns:
+        dict: Result from process_ice_cube_upload.
+
+    Raises:
+        HTTPException: If passphrase is invalid.
+    """
     if passphrase != PASSPHRASE:
         raise HTTPException(status_code=403, detail="Invalid passphrase.")
     parsed_date = datetime.strptime(month, "%Y-%m")
@@ -214,6 +274,18 @@ async def import_ice_cube_file(
     return process_ice_cube_upload(df, parsed_date, pension_plan, db)
 
 def load_staging_data(month):
+    """
+    Load and stage payroll data for a given recon_period month.
+
+    Queries existing staging table and PeopleSoft database, replaces the
+    local staging table if counts mismatch.
+
+    Args:
+        month (str): Recon period in 'YYYY-MM' format.
+
+    Returns:
+        int: Number of rows pulled from PeopleSoft.
+    """
     parsed = datetime.strptime(month, "%Y-%m")
     start_window = (parsed - relativedelta(months=1)).replace(day=1)
     end_window = (parsed + relativedelta(months=1)).replace(day=1)
@@ -278,6 +350,16 @@ def load_staging_data(month):
 
 @router.post("/import-payroll-staging/")
 async def import_payroll_staging(month: str, db: Session = Depends(get_db)):
+    """
+    API endpoint to trigger staging of payroll data for a given month.
+
+    Args:
+        month (str): Recon period in 'YYYY-MM' format.
+        db (Session): Database session dependency (unused here).
+
+    Returns:
+        dict: Message and count of rows copied into staging.
+    """
     rows_inserted = load_staging_data(month)
     return {"message": "Payroll data copied", "rows_inserted": rows_inserted}
 

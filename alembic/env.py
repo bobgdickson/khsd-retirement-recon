@@ -1,3 +1,6 @@
+"""
+Alembic environment configuration for Ice Cube migrations.
+"""
 from logging.config import fileConfig
 import os
 from sqlalchemy import engine_from_config
@@ -30,6 +33,19 @@ target_metadata = Base.metadata
 # ... etc.
 
 def include_object(object, name, type_, reflected, compare_to):
+    """
+    Determine if a database object should be included in migrations.
+
+    Args:
+        object: The SQLAlchemy object to inspect.
+        name: Name of the database object.
+        type_: Type of the object, e.g., 'table', 'column'.
+        reflected: Flag indicating if the object was reflected.
+        compare_to: The object being compared to.
+
+    Returns:
+        bool: True if the object is a table starting with 'ICE_CUBE_', False otherwise.
+    """
     return type_ == "table" and name.upper().startswith("ICE_CUBE_")
 
 def run_migrations_offline() -> None:

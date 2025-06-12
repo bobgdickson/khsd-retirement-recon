@@ -1,3 +1,6 @@
+"""
+SQLAlchemy ORM models defining Ice Cube reconciliation and staging tables.
+"""
 from sqlalchemy import Column, Integer, String, Float, Date, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -6,6 +9,10 @@ Base = declarative_base()
 class IceCubeReconPers(Base):
     __tablename__ = 'ICE_CUBE_RECON_PERS'
     extend_existing = True  # Allow extending existing table
+
+    """
+    ORM model for PERS reconciliation table ICE_CUBE_RECON_PERS.
+    """
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     empl_id = Column(String(10))
@@ -29,6 +36,10 @@ class IceCubeReconPers(Base):
 class IceCubeReconStrs(Base):
     __tablename__ = "ICE_CUBE_RECON_STRS"
     extend_existing = True
+
+    """
+    ORM model for STRS reconciliation table ICE_CUBE_RECON_STRS.
+    """
 
     id = Column("ID", Integer, primary_key=True, index=True)
     empl_id = Column("EMPL_ID", String(10), nullable=True)
@@ -56,6 +67,10 @@ class IceCubeReconStrs(Base):
 class IceCubePayDataStaging(Base):
     __tablename__ = "ICE_CUBE_PAY_DATA_STAGING"
     extend_existing = True
+
+    """
+    ORM model for staging payroll data table ICE_CUBE_PAY_DATA_STAGING.
+    """
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     emplid = Column(String(10), nullable=True)

@@ -1,3 +1,6 @@
+"""
+FastAPI application entrypoint and router registration.
+"""
 from fastapi import FastAPI
 
 from app.routes.recon_import import router
