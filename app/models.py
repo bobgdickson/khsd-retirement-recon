@@ -63,6 +63,7 @@ class IceCubeReconStrs(Base):
     retirement_code = Column("RETIREMENT_CODE", String(10), nullable=True)
     verified = Column("VERIFIED", Boolean, nullable=True)
     recon_period = Column("RECON_PERIOD", String(7), nullable=True)
+    assign_type = Column("ASSIGN_TYPE", String(10), nullable=True)
 
 class IceCubePayDataStaging(Base):
     __tablename__ = "ICE_CUBE_PAY_DATA_STAGING"

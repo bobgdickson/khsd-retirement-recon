@@ -226,6 +226,7 @@ def process_ice_cube_upload(df: pd.DataFrame, parsed_date: date, pension_plan: s
                 "retirement_type": str(row_dict.get("retirement_type")) if pd.notna(row_dict.get("retirement_type")) else None,
                 "verified": bool(int(row_dict.get("verified"))) if pd.notna(row_dict.get("verified")) else None,
                 "recon_period": row_dict.get("recon_period", parsed_date.strftime("%Y-%m")),
+                "assign_type": str(row_dict.get("assign_type")) if pd.notna(row_dict.get("assign_type")) else None,
             }
             records.append(IceCubeReconStrs(**record_data))
     else:

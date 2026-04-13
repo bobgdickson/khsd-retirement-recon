@@ -55,6 +55,7 @@ class IceCubeReconStrsBase(BaseModel):
     retirement_code: Optional[str]
     verified: Optional[bool]
     recon_period: Optional[str]
+    assign_type: Optional[str]
 
 class IceCubeReconStrsCreate(IceCubeReconStrsBase):
     pass
