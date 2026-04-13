@@ -41,6 +41,7 @@ STRS_COLUMN_MAP = {
     "VERIFIED": "verified",
     "STRS": "retirement_type",
     "RECON PERIOD": "recon_period",
+    "ASSIGN TYPE": "assign_type",
 }
 
 PERS_COLUMN_MAP = {
